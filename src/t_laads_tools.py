@@ -152,6 +152,7 @@ def multithread_download_function(target_url):
     print(f"{target_url.split('/')[-1]} downloaded in {around(time() - ptime, decimals=2)} seconds.")
     logging.info(f"{target_url.split('/')[-1]} downloaded in {around(time() - ptime, decimals=2)} seconds.")
 
+
 # Function for multi-threaded downloading
 def multithread_download(target_urls, workers=3):
 
