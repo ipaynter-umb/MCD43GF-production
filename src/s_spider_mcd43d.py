@@ -1,4 +1,17 @@
 import t_laads_tools
+import logging
+import datetime
+from os import environ
+import dotenv
+
+# Load environmental variables
+dotenv.load_dotenv()
+
+# Set the logging config
+logging.basicConfig(filename=environ['log_files_path'] + f'{datetime.datetime.now():%Y%m%d%H%M%S}.log',
+                    filemode='w',
+                    format=' %(levelname)s - %(asctime)s - %(message)s',
+                    level=logging.NOTSET)
 
 # Get a list of product suffixes from 1 - 31
 product_suffixes = range(1, 32, 1)
