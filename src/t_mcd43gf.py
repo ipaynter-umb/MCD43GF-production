@@ -55,8 +55,12 @@ def get_input_data_for_band(years, band):
         file_path = Path(environ['input_files_path'] + url_dict.get_url_from_date('global', curr_date, file_only=True))
         # If the file does not exist
         if not exists(file_path):
-            # Get the URL and add to list
-            url_list.append(url_dict.get_url_from_date('global', curr_date, file_only=False))
+            # Get the URL (will return None is the URL is not available)
+            url = url_dict.get_url_from_date('global', curr_date, file_only=False)
+            # If there was a URL
+            if url:
+                # Add to list
+                url_list.append(url)
         # Add a day to the current date
         curr_date += datetime.timedelta(days=1)
     # Send the URL list for downloading
