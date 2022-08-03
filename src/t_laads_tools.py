@@ -220,16 +220,19 @@ def get_VIIRS_file(session_obj, target_url, write_local=False, return_content=Fa
         # If write to disk
         if write_local is True:
             with open(environ["output_files_path"] + target_url.split('/')[-1], 'wb') as f:
+                # <> Compare against the checksum here (LAADS provides CRC32)
+                # Initiate CRC counter: crc = 0
+                # For each line: for line in f:
+                # Update the CRC count: crc = binascii.crc32(line, crc)
                 f.write(r.content)
         # If content
         if return_content is True:
             return r.content
-        # Convert to h5 file object (checks integrity)
-        # <> Replace with checksum
-        h5file = h5py.File(io.BytesIO(r.content), 'r')
         # If we are returning the file
         if return_file:
+            # <> Need to know if it's HDF4 or HDF5
             # Convert the response content to an H5py File object and return
+            h5file = h5py.File(io.BytesIO(r.content), 'r')
             return h5file
         # If returning nothing else, but successfully reached this point, return True
         return True
