@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from numpy import around
 from time import time
 import logging
+import traceback
 
 # Load the .env file
 dotenv.load_dotenv()
@@ -233,7 +234,9 @@ def get_VIIRS_file(session_obj, target_url, write_local=False, return_content=Fa
         # If returning nothing else, but successfully reached this point, return True
         return True
     # If it fails (incomplete file)
-    except:
+    except Exception:
+        # Print and log the exception
+        traceback.print_exc()
         # Print a warning
         print(f'Warning: File {target_url} could not be converted to h5. Possibly incomplete.')
         logging.warning(f'Warning: File {target_url} could not be converted to h5. Possibly incomplete.')
