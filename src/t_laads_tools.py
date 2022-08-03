@@ -25,7 +25,7 @@ class LaadsUrlsDict:
         # Instantiate attributes
         self.dictionary = None
         self.data_product = data_product
-        self.archive_set = archive_set
+        self.archive_set = str(archive_set)
         # Latest date
         latest_date = None
         # URl dictionary instantiation

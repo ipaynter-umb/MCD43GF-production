@@ -52,16 +52,20 @@ def get_input_data_for_band(years, band):
     curr_date = start_date
     # While the current date is <= end date
     while curr_date <= end_date:
-        # Construct the file path
-        file_path = Path(environ['input_files_path'] + url_dict.get_url_from_date('global', curr_date, file_only=True))
-        # If the file does not exist
-        if not exists(file_path):
-            # Get the URL (will return None is the URL is not available)
-            url = url_dict.get_url_from_date('global', curr_date, file_only=False)
-            # If there was a URL
-            if url:
-                # Add to list
-                url_list.append(url)
+        # Get the file name
+        file_name = url_dict.get_url_from_date('global', curr_date, file_only=True)
+        # If there is a file name
+        if file_name:
+            # Construct the file path
+            file_path = Path(environ['input_files_path'] + file_name)
+            # If the file does not exist
+            if not exists(file_path):
+                # Get the URL (will return None is the URL is not available)
+                url = url_dict.get_url_from_date('global', curr_date, file_only=False)
+                # If there was a URL
+                if url:
+                    # Add to list
+                    url_list.append(url)
         # Add a day to the current date
         curr_date += datetime.timedelta(days=1)
     # Send the URL list for downloading
