@@ -30,7 +30,8 @@ def get_input_data_for_gapfilled(years):
 
 def get_input_data_for_band(years, band):
     # Get URL library for band
-    url_dict = t_laads_tools.LaadsUrlsDict(f"MCD43D{t_laads_tools.zero_pad_number(band, digits=2)}")
+    url_dict = t_laads_tools.LaadsUrlsDict(f"MCD43D{t_laads_tools.zero_pad_number(band, digits=2)}",
+                                           archive_set=6)
     # List of URLs to be downloaded
     url_list = []
     # If years is not a list (i.e. single year)
