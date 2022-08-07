@@ -12,6 +12,7 @@ from numpy import around
 from time import time
 import logging
 import traceback
+import lxml.html as lh
 
 # Load the .env file
 dotenv.load_dotenv()
@@ -219,7 +220,7 @@ def get_VIIRS_file(session_obj, target_url, write_local=False, return_content=Fa
     try:
         # If write to disk
         if write_local is True:
-            with open(environ["output_files_path"] + target_url.split('/')[-1], 'wb') as f:
+            with open(environ["input_files_path"] + target_url.split('/')[-1], 'wb') as f:
                 # <> Compare against the checksum here (LAADS provides CRC32)
                 # Initiate CRC counter: crc = 0
                 # For each line: for line in f:
@@ -344,6 +345,78 @@ def get_VIIRS_availability(data_product,
     laads_session.close()
 
 
+# Get a dictionary of urls corresponding to the file details
+def get_file_detail_urls(target_url):
+    # Get the target url
+    r = requests.get(target_url)
+    # Retrieve the text
+    html = r.text
+    #print(html)
+    root = lh.fromstring(html)
+    table = root.get_element_by_id("laads-archive-list")
+
+    info = {}
+
+    for tr in table:
+        for element in tr.iter():
+            if element.tag != 'a':
+                continue
+            title = element.attrib.get('title')
+            if title is None:
+                continue
+            if "View file details for" not in title:
+                continue
+            file = title.replace('View file details for ', '')
+            href = element.attrib.get("href")
+            info[file] = href
+    # Return the dictionary
+    return info
+
+
+def get_checksums(target_url):
+    # Get the hrefs for the file details
+    info_dict = get_file_detail_urls(target_url)
+    # Checksum dictionary
+    checksum_dict = {}
+    # For each file
+    for file in info_dict.keys():
+        # Get the checksum and file in the dict
+        checksum_dict[file] = get_checksum(info_dict[file])
+    for key in checksum_dict.keys():
+        print(f'{key}, Checksum: {checksum_dict[key]}')
+
+
+def get_checksum(details_href):
+    # Assemble the url
+    target_url = "https://ladsweb.modaps.eosdis.nasa.gov" + details_href
+    # Get the target url
+    r = requests.get(target_url)
+    # Retrieve the text
+    html = r.text
+    # Switch for when the checksum will be in the next td
+    checksum_next = False
+    # Get the root
+    root = lh.fromstring(html)
+    # For each element in the root
+    for element in root.iter():
+        # If it's a table
+        if element.attrib.get('class') == "table":
+            # For each row in the table
+            for tr in element:
+                # For each division in the row
+                for td in tr:
+                    # For the text in the division
+                    for text in td.itertext():
+                        # If this is the checksum
+                        if checksum_next:
+                            # Return it
+                            return text
+                        # If the text reads "Checksum"
+                        if text == "Checksum":
+                            # Flip the checksum next switch
+                            checksum_next = True
+
+
 def zero_pad_number(input_number, digits=3):
     # Make sure the number has been converted to a string
     input_number = str(input_number)
@@ -396,7 +469,7 @@ def main():
 
 if __name__ == '__main__':
 
-    main()
+    get_checksums("https://ladsweb.modaps.eosdis.nasa.gov/archive/allData/5000/VNP46A2/2016/008/")
 
 
 
