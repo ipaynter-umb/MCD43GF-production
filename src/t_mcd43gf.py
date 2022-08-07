@@ -154,9 +154,6 @@ def create_symbolic_links(years, archive_set):
                     curr_date += datetime.timedelta(days=1)
 
 
-    pass
-
-
 def make_var_list(variable):
     # If variable is not a list (i.e. single value)
     if not isinstance(variable, list):
