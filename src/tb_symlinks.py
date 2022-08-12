@@ -2,6 +2,11 @@ from os import symlink, environ
 from os.path import exists
 from pathlib import Path
 from dotenv import load_dotenv
+from numpy import arange
+
+print(list(arange(1, 8, 1)))
+
+exit()
 
 load_dotenv()
 

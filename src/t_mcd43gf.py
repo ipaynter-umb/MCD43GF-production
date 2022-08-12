@@ -104,7 +104,7 @@ def create_symbolic_links(years, archive_set):
                                  month=1,
                                  day=1) + datetime.timedelta(days=192)
         # For each band
-        for band in list(arange(1, 8, 7)):
+        for band in list(arange(1, 8, 1)):
             # Zero pad the band name
             band_name = t_laads_tools.zero_pad_number(band, digits=2)
             # Band path
@@ -122,9 +122,9 @@ def create_symbolic_links(years, archive_set):
                     # Make the directory
                     mkdir(sub_path)
             # For each of the relevant MCD43D products (e.g. 01-03 for band 1. All bands use 31 & 40)
-            for mcd_product in [t_laads_tools.zero_pad_number(band - 1, digits=2),
-                                t_laads_tools.zero_pad_number(band, digits=2),
+            for mcd_product in [t_laads_tools.zero_pad_number(band, digits=2),
                                 t_laads_tools.zero_pad_number(band + 1, digits=2),
+                                t_laads_tools.zero_pad_number(band + 2, digits=2),
                                 "31",
                                 "40"]:
                 # Get URL library for band

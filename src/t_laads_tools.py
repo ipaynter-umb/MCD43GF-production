@@ -17,6 +17,7 @@ import lxml.html as lh
 # Load the .env file
 dotenv.load_dotenv()
 
+
 # Class for URL dictionary (to load when you need it)
 class LaadsUrlsDict:
 
