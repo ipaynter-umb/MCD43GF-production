@@ -1,6 +1,4 @@
 import argparse
-import os
-
 import t_laads_tools
 import datetime
 import logging
