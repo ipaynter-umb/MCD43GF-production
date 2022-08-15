@@ -142,8 +142,12 @@ def create_symbolic_links(years, archive_set):
                         file_path = Path(environ['input_files_path'] + file_name)
                         # If the file exists (has been downloaded)
                         if exists(file_path):
-                            # Create a symbolic link
-                            symlink(file_path, Path(band_path, str(curr_date.year), file_name))
+                            # Construct path for link
+                            link_path = Path(band_path, str(curr_date.year), file_name)
+                            # If the path does not exist yet
+                            if not exists(link_path):
+                                # Create a symbolic link
+                                symlink(file_path, Path(band_path, str(curr_date.year), file_name))
                         # Otherwise (file not downloaded?)
                         else:
                             # Log a warning
