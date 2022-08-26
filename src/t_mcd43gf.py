@@ -179,3 +179,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # Get input data for years
     get_input_data_for_gapfilled(args.years)
+    # Create the symbolic links
