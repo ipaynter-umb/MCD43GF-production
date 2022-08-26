@@ -62,8 +62,24 @@ def get_input_data_for_band(years, band, archive_set=6):
                 url = url_dict.get_url_from_date('global', curr_date, file_only=False)
                 # If there was a URL
                 if url:
+                    # Get the checksum
+                    checksum = url_dict.checksums.get(file_name)
                     # Add to list
-                    url_list.append(url)
+                    url_list.append((url, checksum))
+            # Otherwise (file does exist)
+            else:
+                # If the checksum is wrong
+                if not t_laads_tools.check_checksum(file_path, url_dict.checksums.get(file_name)):
+                    # Log this occurrence
+                    logging.warning(f"Checksum did not match validation for {file_name}. Attempting to redownload.")
+                    # Get the URL (will return None is the URL is not available)
+                    url = url_dict.get_url_from_date('global', curr_date, file_only=False)
+                    # If there was a URL
+                    if url:
+                        # Get the checksum
+                        checksum = url_dict.checksums.get(file_name)
+                        # Add to list to redownload
+                        url_list.append((url, checksum))
         # Add a day to the current date
         curr_date += datetime.timedelta(days=1)
     # Send the URL list for downloading

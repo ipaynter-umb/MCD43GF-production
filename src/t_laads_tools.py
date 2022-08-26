@@ -67,6 +67,8 @@ class LaadsUrlsDict:
                 self.checksums = json.load(f)
         # Otherwise (checksum file does not exist)
         else:
+            # Log this occurence
+            logging.info(f'Fetching checksums for product {self.data_product}, archive set {self.archive_set}.')
             # Get the urls for the checksum file
             checksum_url_list = get_checksum_urls(self.dictionary,
                                                   self.data_product,
@@ -241,7 +243,11 @@ def connect_to_laads():
 
 
 # Get a data product H5 file from laads and return it in some form
-def get_product_file(session_obj, target_url, write_local=False, return_content=False, return_file=True):
+def get_product_file(session_obj, url_checksum, write_local=False, return_content=False, return_file=True):
+    # Unpack the URL/checksum
+    target_url = url_checksum[0]
+    checksum = url_checksum[1]
+
     # Request the H5 file from the provided URL
     r = session_obj.get(target_url)
     # If the request failed
@@ -252,12 +258,17 @@ def get_product_file(session_obj, target_url, write_local=False, return_content=
     try:
         # If write to disk
         if write_local is True:
-            with open(environ["input_files_path"] + target_url.split('/')[-1], 'wb') as f:
-                # <> Compare against the checksum here (LAADS provides CRC32)
-                # Initiate CRC counter: crc = 0
-                # For each line: for line in f:
-                # Update the CRC count: crc = binascii.crc32(line, crc)
+            # Get the write path
+            write_path = environ["input_files_path"] + target_url.split('/')[-1]
+            # Save the file
+            with open(write_path, 'wb') as f:
                 f.write(r.content)
+            # While the checksum is not correct
+            while not check_checksum(write_path, checksum):
+                # Log this occurrence
+                logging.warning(f"Checksum did not match validation for {target_url.split('/')[-1]}. Attempting to redownload.")
+                # Send to repeated submission function
+                r = try_try_again(r, session_obj, target_url)
         # If content
         if return_content is True:
             return r.content
@@ -626,11 +637,10 @@ def check_checksum(file_path, checksum):
 
     if UNSIGNED(~s) != checksum:
         print(f"Checksums do not match: {UNSIGNED(~s)} vs. {checksum}.")
+        return False
 
-    else:
-        print(f"Checksums match: {UNSIGNED(~s)} vs. {checksum}.")
-
-    return UNSIGNED(~s)
+    # If we get this far (checksums match) return True
+    return True
 
 
 def main():
