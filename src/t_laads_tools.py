@@ -479,8 +479,24 @@ def get_checksums(target_url, existing_dict=None):
         existing_dict = {}
     # For each file
     for file in info_list:
-        # Get the checksum and store in the dict
-        existing_dict[file[0]] = get_checksum(file[1])
+        # Get the checksum
+        checksum = get_checksum(file[1])
+        # If there is a checksum
+        if checksum:
+            # Store in the dict
+            existing_dict[file[0]] = get_checksum(file[1])
+        # Otherwise (no valid checksum)
+        else:
+            # Back-off timer
+            back_off = 5
+            # While there is no valid checksum
+            while not checksum:
+                # Wait a hot second
+                sleep(back_off)
+                # Get the checksum
+                checksum = get_checksum(file[1])
+                # Add to back off timer
+                back_off += 1
     # Return dictionary
     return existing_dict
 
@@ -508,12 +524,19 @@ def get_checksum(details_href):
                     for text in td.itertext():
                         # If this is the checksum
                         if checksum_next:
-                            # Return it
-                            return text
+                            # Try converting checksum to integer
+                            try:
+                                int(text)
+                                # Return it
+                                return text
+                            except:
+                                logging.error(f"Checksum {text} is not a valid checksum.")
                         # If the text reads "Checksum"
                         if text == "Checksum":
                             # Flip the checksum next switch
                             checksum_next = True
+    # If we get here, we did not find a checksum
+    logging.warning(f"Valid checksum not found for {target_url}.")
 
 
 def zero_pad_number(input_number, digits=3):

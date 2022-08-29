@@ -17,10 +17,10 @@ def get_input_data_for_gapfilled(years, archive_set=6):
     logging.basicConfig(filename=environ['log_files_path'] + f'{datetime.datetime.now():%Y%m%d%H%M%S}.log',
                         filemode='w',
                         format=' %(levelname)s - %(asctime)s - %(message)s',
-                        level=logging.NOTSET)
+                        level=logging.INFO)
     # List of bands from 1 - 31
     band_list = list(arange(1, 32, 1))
-    # Add band 40
+    # Add band 40 url_dict.checksums.get(file_name)
     band_list.append(40)
     # For band in bands
     for band in band_list:
@@ -68,18 +68,26 @@ def get_input_data_for_band(years, band, archive_set=6):
                     url_list.append((url, checksum))
             # Otherwise (file does exist)
             else:
-                # If the checksum is wrong
-                if not t_laads_tools.check_checksum(file_path, url_dict.checksums.get(file_name)):
-                    # Log this occurrence
-                    logging.warning(f"Checksum did not match validation for {file_name}. Attempting to redownload.")
-                    # Get the URL (will return None is the URL is not available)
-                    url = url_dict.get_url_from_date('global', curr_date, file_only=False)
-                    # If there was a URL
-                    if url:
-                        # Get the checksum
-                        checksum = url_dict.checksums.get(file_name)
-                        # Add to list to redownload
-                        url_list.append((url, checksum))
+                # Try and get the checksum
+                checksum = url_dict.checksums.get(file_name)
+                # If there is a checksum
+                if checksum:
+                    # If the checksum is wrong
+                    if not t_laads_tools.check_checksum(file_path, checksum):
+                        # Log this occurrence
+                        logging.warning(f"Checksum did not match validation for {file_name}. Attempting to redownload.")
+                        # Get the URL (will return None is the URL is not available)
+                        url = url_dict.get_url_from_date('global', curr_date, file_only=False)
+                        # If there was a URL
+                        if url:
+                            # Get the checksum
+                            checksum = url_dict.checksums.get(file_name)
+                            # Add to list to redownload
+                            url_list.append((url, checksum))
+                # Otherwise (no checksum)
+                else:
+                    # Log a warning
+                    logging.warning(f"Checksum not found for {file_name}.")
         # Add a day to the current date
         curr_date += datetime.timedelta(days=1)
     # Send the URL list for downloading
