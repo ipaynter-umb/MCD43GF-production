@@ -23,63 +23,77 @@ dotenv.load_dotenv()
 # Class for URL dictionary (to load when you need it)
 class LaadsUrlsDict:
 
-    __slots__ = ["dictionary", "checksums", "data_product", "archive_set"]
+    __slots__ = ["by_date",
+                 "by_id",
+                 "by_name",
+                 "data_product",
+                 "archive_set"]
 
     def __init__(self, data_product, archive_set="5000"):
 
         # Instantiate attributes
-        self.dictionary = None
-        self.checksums = {}
+        self.by_date = None
+        self.by_id = None
+        self.by_name = None
         self.data_product = data_product
         self.archive_set = str(archive_set)
         # Latest date
         latest_date = self.get_latest_url_file()
         # If there was a file (as indicated by the presence of a latest date)
-        if latest_date is not None:
-            # Print and log update
-            print(f"Opening URLs file from {latest_date}")
-            logging.info(f"Opening URLs file from {latest_date}")
-            # Assemble the path to the file
-            latest_file_path = Path(
-                environ["support_files_path"] + f'{self.archive_set}_{self.data_product}_laads_urls_' + latest_date.strftime(
-                    "%m%d%Y") + ".json")
-            # Open the file
-            with open(latest_file_path, 'r') as f:
-                # Load as dictionary and reference
-                self.dictionary = json.load(f)
-        # Otherwise (no file)
-        else:
-            # Update the file (this will reference the dictionary)
-            get_product_availability(data_product,
-                                     existing_dict=self,
-                                     archive_set=self.archive_set)
+        while latest_date is None:
+            # Get the file details to make a file
+            get_product_ids_urls_checksums(self.data_product,
+                                           self.archive_set,
+                                           workers=3)
             # Latest date
             latest_date = self.get_latest_url_file()
-        # Get the prospective Checksum file path
-        checksum_path = Path(
-                environ["support_files_path"] + f'{self.archive_set}_{self.data_product}_laads_checksums_' + latest_date.strftime(
-                    "%m%d%Y") + ".json")
-        # If the checksum file exists
-        if exists(checksum_path):
-            # Open the file
-            with open(checksum_path, 'r') as f:
-                # Load as dictionary
-                self.checksums = json.load(f)
-        # Otherwise (checksum file does not exist)
-        else:
-            # Log this occurence
-            logging.info(f'Fetching checksums for product {self.data_product}, archive set {self.archive_set}.')
-            # Get the urls for the checksum file
-            checksum_url_list = get_checksum_urls(self.dictionary,
-                                                  self.data_product,
-                                                  archive_set=self.archive_set)
-            # For each target url
-            for target_url in checksum_url_list:
-                # Update the checksum dictionary
-                self.checksums = get_checksums(target_url, existing_dict=self.checksums)
-            # Save the checksum dictionary
-            with open(checksum_path, 'w') as of:
-                json.dump(self.checksums, of, indent=4)
+        # Print and log update
+        logging.info(f"Opening file details from {latest_date}")
+        # Assemble the path to the file
+        latest_file_path = Path(
+            environ["support_files_path"] + f'{self.archive_set}_{self.data_product}_files_' + latest_date.strftime(
+                "%m%d%Y") + ".json")
+        # Open the file
+        with open(latest_file_path, 'r') as f:
+            # Load as dictionary and reference
+            input_dict = json.load(f)
+        # Sort the dictionary into the various attributes
+        self.ingest_dict(input_dict)
+
+    # Ingest a dictionary into different sorting methods
+    def ingest_dict(self, input_dict):
+        # For each key (File ID) in the dictionary
+        for id in input_dict.keys():
+            # Construct the subdictionary
+            subdict = {'id': id,
+                       'name': input_dict[id]['name'],
+                       'checksum': input_dict[id]['checksum'],
+                       'url': input_dict[id]['url']}
+            # Store under the ID
+            self.by_id[id] = subdict
+            # If there is no entry for the file name
+            if input_dict[id]['name'] not in self.by_name.keys():
+                # Add it
+                self.by_name[input_dict[id]['name']] = subdict
+            # Otherwise
+            else:
+                logging.warning(f"Duplicate entry found for file name {subdict['name']}")
+            # Extract the date details from the file name
+            split_date = subdict['name'].split('.')[1]
+            year = split_date[1:5]
+            doy = split_date[5:8]
+            # If there is no year entry
+            if year not in self.by_date.keys():
+                # Add the year
+                self.by_date[year] = {}
+            # If there is no DOY entry
+            if doy not in self.by_date[year].keys():
+                # Add the subdictionary
+                self.by_date[year][doy] = subdict
+            # Otherwise (duplicate DOY in year)
+            else:
+                # Log a warning
+                logging.warning(f"Duplicate entry found for year {year}, DOY {doy}.")
 
     # Get the latest date of a URL file
     def get_latest_url_file(self):
@@ -90,7 +104,7 @@ class LaadsUrlsDict:
             # For each file name
             for name in files:
                 # If the file is one of the URL files
-                if f"{self.archive_set}_{self.data_product}_laads_urls" in name:
+                if f"{self.archive_set}_{self.data_product}_files_" in name:
                     # Split the name
                     split_name = name.split('_')
                     # Make a datetime date object from the name
@@ -108,8 +122,10 @@ class LaadsUrlsDict:
         # Return latest date
         return latest_date
 
-    # Get a LAADS url from a datetime object
-    def get_url_from_date(self, tile, date, file_only=False):
+    # Get file url(s) from a datetime object
+    def get_urls_from_date(self, date, file_only=False):
+        # URL list
+        url_list = []
         # <> Generalized to a support database/table that contains keywords like "monthly", "annual"
         # If the data product is VNP46A3
         if self.data_product == "VNP46A3":
@@ -120,30 +136,26 @@ class LaadsUrlsDict:
             # Set the day and month to 1
             date = date.replace(day=1)
             date = date.replace(month=1)
-        # If the tile is in the dictionary
-        if tile in self.dictionary.keys():
-            # If the year is in the subdictionary
-            if str(date.year) in self.dictionary[tile].keys():
-                # Get the day of year
-                doy = zero_pad_number((date - datetime.date(year=date.year, month=1, day=1)).days + 1)
-                # If the doy is in the subdictionary
-                if doy in self.dictionary[tile][str(date.year)].keys():
-                    # Get the file name
-                    file_name = self.dictionary[tile][str(date.year)][doy]
-                    # If only the file name was request
-                    if file_only:
-                        # Return the filename
-                        return file_name
-                    # Otherwise (full URL)
-                    else:
-                        # Assemble the full URL
-                        full_url = environ["laads_alldata_url"]
-                        full_url += self.archive_set + '/' + self.data_product + '/' + str(date.year) + '/'
-                        full_url += doy + '/' + file_name
-                        # Return the full url
-                        return full_url
-        # Return None
-        return None
+        # If the year is in the subdictionary
+        if str(date.year) in self.by_date.keys():
+            # Get the day of year
+            doy = zero_pad_number((date - datetime.date(year=date.year, month=1, day=1)).days + 1)
+            # If the doy is in the subdictionary
+            if doy in self.by_date[str(date.year)].keys():
+                # If only the file name was request
+                if file_only:
+                    # Append the filename
+                    url_list.append(self.by_date[str(date.year)][doy]['name'])
+                # Otherwise (full URL)
+                else:
+                    # Append the full url
+                    url_list.append(self.by_date[str(date.year)][doy]['url'])
+        # If the list is empty
+        if len(url_list) == 0:
+            # Return None
+            return None
+        # Return the list
+        return url_list
 
     # Get the urls for a specified date range, or date list
     # <> Min year is based on VIIRS life span
@@ -153,19 +165,12 @@ class LaadsUrlsDict:
                                  end_date=datetime.datetime.now()):
         # List for URLs
         urls_list = []
-        # Check we have information for the tile
-        if tile not in self.dictionary.keys():
-            # Print a warning
-            print(f"Warning tile {tile} not found in the URL dictionary.")
-            logging.warning(f"Warning tile {tile} not found in the URL dictionary.")
-            # End
-            return urls_list
         # Specify target date
         target_date = start_date
         # While the target date is before end date
         while target_date <= end_date:
             # Get the URL (if any)
-            target_url = self.get_url_from_date(tile, target_date)
+            target_url = self.get_urls_from_date(target_date)
             # If there was a URL
             if target_url:
                 # Append the URL to the list
@@ -191,7 +196,7 @@ def multithread_download_function(target_url):
 
 # Function for multi-threaded downloading
 def multithread_download(target_urls, workers=3):
-
+    # <> We want to kick "troubled" jobs down the road
     # Mark start time
     stime = time()
     # Guard against single URLs submitted
@@ -212,7 +217,7 @@ def multithread_download(target_urls, workers=3):
 
 # Function to submit request to LAADS and keep trying until we get a response
 def try_try_again(r, s, target_url):
-
+    # <> Refresh the session on attempt.
     # Back-off timer
     back_off = 5
     # If we get timed out
@@ -289,6 +294,157 @@ def get_product_file(session_obj, url_checksum, write_local=False, return_conten
         logging.warning(f'Warning: File {target_url} could not be converted to h5. Possibly incomplete.')
         # Return None
         return None
+
+
+def get_product_ids_urls_checksums(product, archive_set='5000', workers=6):
+
+    # Start time
+    stime = time()
+
+    logging.info(f"Starting retrieval of file details for {product}, AS{archive_set}.")
+
+    # Chunk size (number of days to search at a time)
+    # <> Optimize chunk size based on a few random tests?
+    chunk_size = 50
+
+    # Get the start and end dates for the product / archive set combination
+    product_start, product_end = get_product_date_range(product,
+                                                        archive_set=archive_set)
+
+    logging.info(f"Overall date range {product_start.isoformat()} to {product_end.isoformat()}.")
+
+    # Task list
+    task_list = []
+
+    # Set current date to start
+    current_date = product_start
+
+    # While
+    while current_date < product_end:
+        # Current end date (based on current date and chunk size)
+        current_end = current_date + datetime.timedelta(days=chunk_size)
+        # Add time window to the task list
+        task_list.append((current_date, current_end))
+        # Add to current date
+        current_date += datetime.timedelta(days=chunk_size + 1)
+
+    logging.info(f"Chunk size {chunk_size} days. Total of {len(task_list)} tasks.")
+
+    # Assemble the path to the file
+    output_path = Path(environ["support_files_path"] + f'{archive_set}_{product}_files_' + datetime.datetime.now().strftime("%m%d%Y") + ".json")
+    # Main results dictionary
+    main_dict = {}
+    # Start a ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        # Submit the tasks from the url list to the worker function
+        future_events = {executor.submit(multithread_product_ids_urls_checksums,
+                                         date_range, product, archive_set=archive_set): date_range for date_range in
+                         task_list}
+        # As each worker is finished
+        for event in as_completed(future_events):
+            # Get the results dictionary
+            results_dict = event.result()
+            # Merge with the ongoing dictionary
+            main_dict = {**main_dict, **results_dict}
+
+    logging.info(f"All file details retrieved in {around(time() - stime, decimals=2)} seconds. Writing output...")
+
+    # When we're finished, save the dictionary
+    with open(output_path, 'w') as of:
+        json.dump(main_dict, of, indent=4)
+
+    logging.info(f"Output saved to {output_path}.")
+
+
+def multithread_product_ids_urls_checksums(date_range, product, archive_set='5000'):
+    # Start time for worker
+    stime = time()
+    # Logging
+    logging.info(f"Worker retrieving IDs, URLs, and checksums for {product}, AS{archive_set} for {date_range[0].isoformat()} to {date_range[1].isoformat()}.")
+    # Base URL
+    base_url = "https://ladsweb.modaps.eosdis.nasa.gov"
+    # Dictionary for results
+    results_dict = {}
+    # Make a new, un-authenticated session
+    s = requests.Session()
+    # Assemble a search based on the current date and chunk size
+    product_search = f"/api/v1/files/product={product}&collection={archive_set}&dateRanges={date_range[0].isoformat()}..{date_range[1].isoformat()}"
+    # While valid request is false
+    while True:
+        # Make a request based on the search
+        r = s.get(base_url + product_search, allow_redirects=False)
+        # Try to parse the response into json
+        try:
+            file_ids = r.json()
+            break
+        except:
+            logging.warning(f'Request for file IDs from {product_search} failed. Retrying.')
+
+    # For each file ID in the response
+    for file_id in r.json():
+        # Form the URL to get the file details
+        checksum_url = f'https://ladsweb.modaps.eosdis.nasa.gov/api/v1/filePage/useSimple=true&fileId={file_id}'
+        # While True
+        while True:
+            # Get the target url
+            checksum_request = s.get(checksum_url, allow_redirects=False)
+            # Try and parse the response
+            try:
+                # File name
+                file_name = r.json()[file_id]['name']
+                break
+            # If the request was not valid
+            except:
+                logging.warning(f'Request for checksum from {checksum_url} failed. Retrying.')
+        # Get file details from the name
+        year = file_name.split('.')[1][1:5]
+        doy = file_name.split('.')[1][5:8]
+        # Retrieve the checksum
+        checksum = get_checksum_from_details_page(checksum_request.text, file_name)
+        # Form URL
+        file_url = environ['laads_alldata_url'] + f'{archive_set}/' + f'{product}/' + f'{year}/' + f'{doy}/' + file_name
+        # Add the results to the dictionary
+        results_dict[file_id] = {'name': file_name,
+                                 'url': file_url,
+                                 'checksum': checksum}
+    # Logging
+    logging.info(
+        f"Worker completed retrieval for {product}, AS{archive_set} for {date_range[0].isoformat()} to {date_range[1].isoformat()} in {around(time() - stime, decimals=2)} seconds.")
+
+    # Return the results dictionary
+    return results_dict
+
+
+def get_checksum_from_details_page(html, file_name):
+    # Switch for when the checksum will be in the next td
+    checksum_next = False
+    # Checksum placeholder
+    checksum = None
+    # Get the root
+    root = lh.fromstring(html)
+    # For each element in the root
+    for element in root.iter():
+        # If it's a table
+        if element.attrib.get('class') == "table":
+            # For each row in the table
+            for tr in element:
+                # For each division in the row
+                for td in tr:
+                    # For the text in the division
+                    for text in td.itertext():
+                        # If this is the checksum
+                        if checksum_next:
+                            # Try converting checksum to integer
+                            try:
+                                int(text)
+                                # Return it
+                                return text
+                            except:
+                                logging.error(f"Checksum {text} is not a valid checksum for {file_name}.")
+                        # If the text reads "Checksum"
+                        if text == "Checksum":
+                            # Flip the checksum next switch
+                            checksum_next = True
 
 
 # Function to return a dictionary of URLs to a data product on LAADS (will update existing)
@@ -386,6 +542,54 @@ def get_product_availability(data_product,
         json.dump(urls_dict.dictionary, of, indent=4)
     # Close the session
     laads_session.close()
+
+# Get the start and end dates for a product in an archive set
+def get_product_date_range(product, archive_set='5000'):
+
+    # Get an authenticated session
+    s = connect_to_laads()
+    # Base URL for product/archive set
+    url = environ['laads_alldata_url'] + archive_set + '/' + product
+    # Request the json for the product/archive set
+    r = s.get(url + '.json')
+
+    year_list = []
+
+    for year_dict in r.json():
+        year_list.append(year_dict['name'])
+    sorted_years = sorted(year_list, key=int)
+
+    # Get the days for the earliest year
+    r = s.get(url + f'/{sorted_years[0]}.json')
+
+    doy_list = []
+
+    for doy_dict in r.json():
+        doy_list.append(doy_dict['name'])
+
+    sorted_doys = sorted(doy_list, key=int)
+    earliest_doy = sorted_doys[0]
+
+    # Get the days for the latest year
+    r = s.get(url + f'/{sorted_years[-1]}.json')
+
+    doy_list = []
+
+    for doy_dict in r.json():
+        doy_list.append(doy_dict['name'])
+
+    sorted_doys = sorted(doy_list, key=int)
+    latest_doy = sorted_doys[-1]
+
+    start_date = datetime.date(year=int(sorted_years[0]),
+                               month=1,
+                               day=1) + datetime.timedelta(days=int(earliest_doy))
+
+    end_date = datetime.date(year=int(sorted_years[-1]),
+                             month=1,
+                             day=1) + datetime.timedelta(days=int(latest_doy))
+
+    return start_date, end_date
 
 
 # Get a list of urls corresponding to the file details
@@ -668,26 +872,14 @@ def check_checksum(file_path, checksum):
 
 def main():
 
-    laads_dict = LaadsUrlsDict('MCD43D01', archive_set='6')
+    # Set the logging config
+    logging.basicConfig(filename=environ['log_files_path'] + f'{datetime.datetime.now():%Y%m%d%H%M%S}.log',
+                        filemode='w',
+                        format=' %(levelname)s - %(asctime)s - %(message)s',
+                        level=logging.INFO)
 
-    for year in laads_dict.dictionary['global'].keys():
-        for count, doy in enumerate(laads_dict.dictionary['global'][year].keys()):
-            file = laads_dict.dictionary['global'][year].get(doy)
-            if file not in laads_dict.checksums.keys():
-                print(f'File {file} not in checksum dict')
+    laads_dict = LaadsUrlsDict('MCD43D31', archive_set='6')
 
-        print(f"{count} files processed for {year}.")
-
-    #url = "https://ladsweb.modaps.eosdis.nasa.gov/archive/allData/5000/VNP46A2/2014/268/"
-    #get_file_detail_urls(url)
-
-    #checksums = get_checksums("https://ladsweb.modaps.eosdis.nasa.gov/archive/allData/5000/VNP46A2/2014/268")
-
-    #for file in checksums.keys():
-        #print(file, checksums.get(file))
-
-
-    #check_checksum(Path("F:/UMB/VNP46A2.A2016008.h09v05.001.2020258170409.h5"), 913240203)
 
 
 if __name__ == '__main__':
