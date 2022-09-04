@@ -1,4 +1,3 @@
-import os
 import requests
 import json
 from time import sleep
@@ -122,6 +121,38 @@ class EarthDataDict:
         # Return latest date
         return latest_date
 
+    # Get EarthDataFileRequest objects from a datetime object
+    def get_file_objects_from_date(self, date):
+        # object list
+        object_list = []
+        # <> Generalized to a support database/table that contains keywords like "monthly", "annual"
+        # If the data product is VNP46A3
+        if self.data_product == "VNP46A3":
+            # Set the day to 1
+            date = date.replace(day=1)
+        # If the data product is VNP46A4
+        elif self.data_product == "VNP46A4":
+            # Set the day and month to 1
+            date = date.replace(day=1)
+            date = date.replace(month=1)
+        # If the year is in the subdictionary
+        if str(date.year) in self.by_date.keys():
+            # Get the day of year
+            doy = zero_pad_number((date - datetime.date(year=date.year, month=1, day=1)).days + 1)
+            # If the doy is in the subdictionary
+            if doy in self.by_date[str(date.year)].keys():
+                # Append the object
+                object_list.append(EarthDataFileRequest(self.by_date[str(date.year)][doy]['name'],
+                                                        self.by_date[str(date.year)][doy]['url'],
+                                                        None,
+                                                        checksum=self.by_date[str(date.year)][doy]['checksum']))
+        # If the list is empty
+        if len(object_list) == 0:
+            # Return None
+            return None
+        # Return the list
+        return object_list
+
     # Get file url(s) from a datetime object
     def get_urls_from_date(self, date, file_only=False):
         # URL list
@@ -204,7 +235,11 @@ def multithread_download_function(target_url):
     # Start a LAADS session (the requests session object is not thread-safe so we need one per thread)
     s = connect_to_laads()
     # Get the requested file from the URL
-    downloaded = get_product_file(s, target_url, write_local=True, return_file=False, return_content=False)
+    downloaded = get_product_file(s,
+                                  target_url,
+                                  write_local=True,
+                                  return_file=False,
+                                  return_content=False)
     # Print the time taken
     print(f"{target_url.split('/')[-1]} downloaded in {around(time() - ptime, decimals=2)} seconds.")
     logging.info(f"{target_url.split('/')[-1]} downloaded in {around(time() - ptime, decimals=2)} seconds.")
@@ -218,7 +253,7 @@ def multithread_download(targets, workers=3):
     # Guard against single URLs submitted
     if not isinstance(targets, list):
         # Encapsulate in list
-        target_urls = [targets]
+        targets = [targets]
     # Start a ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=workers) as executor:
         # Submit the tasks from the target list to the worker function, along with an authenticated session
@@ -235,13 +270,15 @@ def attempt_request(session, target_url, attempt_limit=10):
     # Back-off timer
     back_off = 0
     # Attempt count
-    attempt_count = 0
+    attempt_count = 1
     # Log the attempt
     logging.info(f'Making request for {target_url}. Attempt {attempt_count}.')
     # Try the request
     r = session.get(target_url)
     # If we get a non-200 status request
     while r.status_code != 200:
+        # Log the attempt
+        logging.info(f'{r.status_code} for {target_url}.')
         # Increment attempt count
         attempt_count += 1
         # If we have exceeded the attempt limit
@@ -252,10 +289,8 @@ def attempt_request(session, target_url, attempt_limit=10):
             return False
         # Log a warning
         logging.warning(f'Status code of {r.status_code} for {target_url}. Waiting {back_off} seconds.')
-        # Wait a hot second
+        # Wait a hot second_
         sleep(back_off)
-        # Increment attempt count
-        attempt_count += 1
         # Log the attempt
         logging.info(f'Making request for {target_url}. Attempt {attempt_count}.')
         # Try again
@@ -318,6 +353,8 @@ def write_request_content(request, write_path):
         # Return False (failed)
         return False
     else:
+        # Log the info
+        logging.info(f'Successfully wrote request content to {write_path}.')
         # Return True (succeeded)
         return True
 
@@ -357,6 +394,8 @@ def connect_to_laads():
 def download_earthdata_file(session_obj, target, attempt_limit=3):
     # Attempt count
     attempt_count = 0
+    logging.debug(f"Heading into while loop in download function for {target.url}")
+
     # While True
     while True:
         # Increment attempt count
@@ -364,7 +403,7 @@ def download_earthdata_file(session_obj, target, attempt_limit=3):
         # If we have exceeded the attempt count
         if attempt_count > attempt_limit:
             # Log an error
-            logging.error(f'Downloading file from {target.url} failed after {attempt_count} of {attempt_limit} attempts.')
+            logging.error(f'Downloading file from {target.url} failed after {attempt_limit} of {attempt_limit} attempts.')
             # Return False (failed)
             return False
         # Log the info
@@ -391,6 +430,7 @@ def download_earthdata_file(session_obj, target, attempt_limit=3):
                 logging.error(f'The checksum for {target.url} did not match the content written to {target.destination}.')
                 # Skip the loop
                 continue
+
         # If we made it this far, we have succeeded. Return True.
         return True
 
@@ -681,6 +721,7 @@ def get_product_availability(data_product,
         json.dump(urls_dict.dictionary, of, indent=4)
     # Close the session
     laads_session.close()
+
 
 # Get the start and end dates for a product in an archive set
 def get_product_date_range(product, archive_set='5000'):
@@ -1002,10 +1043,11 @@ def check_checksum(file_path, checksum):
         s = UNSIGNED(s << 8) ^ crctab[(s >> 24) ^ c]
 
     if UNSIGNED(~s) != checksum:
-        print(f"Checksums do not match: {UNSIGNED(~s)} vs. {checksum}.")
+        logging.info(f"Checksums did not match for {file_path}: {UNSIGNED(~s)} vs. {checksum}.")
         return False
 
     # If we get this far (checksums match) return True
+    logging.info(f"Checksums matched for {file_path}.")
     return True
 
 

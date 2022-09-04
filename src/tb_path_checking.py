@@ -2,6 +2,13 @@ from pathlib import Path
 from os.path import exists
 from os import mkdir
 
+plist = [3, 1, 2]
+
+plist = plist[0]
+
+print(plist)
+print(type(plist))
+
 test = False
 
 if not test:

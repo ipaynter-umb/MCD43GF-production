@@ -33,7 +33,7 @@ def get_input_data_for_band(years, band, archive_set=6):
     archive_set = str(archive_set)
     # Get data library for band
     band_dict = t_laads_tools.EarthDataDict(f"MCD43D{t_laads_tools.zero_pad_number(band, digits=2)}",
-                                           archive_set=archive_set)
+                                            archive_set=archive_set)
     # List of URLs to be downloaded
     target_list = []
     # Ensure years is a list
@@ -53,7 +53,8 @@ def get_input_data_for_band(years, band, archive_set=6):
     # While the current date is <= end date
     while curr_date <= end_date:
         # Get the file name
-        file_name = band_dict.get_urls_from_date(curr_date, file_only=True)
+        file_name = band_dict.get_urls_from_date(curr_date,
+                                                 file_only=True)
         # If there is a file name
         if file_name:
             # If more than one file name came back for the date
@@ -66,7 +67,8 @@ def get_input_data_for_band(years, band, archive_set=6):
             # If the file does not exist
             if not exists(file_path):
                 # Get the URL (will return None is the URL is not available)
-                url = band_dict.get_urls_from_date(curr_date, file_only=False)
+                url = band_dict.get_urls_from_date(curr_date,
+                                                   file_only=False)
                 # If there was a URL
                 if url:
                     # Get the checksum
@@ -75,6 +77,7 @@ def get_input_data_for_band(years, band, archive_set=6):
                     if len(url) > 1:
                         # Log a warning
                         logging.warning(f"{len(url)} URLs returned for {curr_date.isoformat()}. Using first URL.")
+                    url = url[0]
                     # Add EarthDataFileRequest object to list
                     target_list.append(t_laads_tools.EarthDataFileRequest(file_name,
                                                                           url,
@@ -91,7 +94,8 @@ def get_input_data_for_band(years, band, archive_set=6):
                         # Log this occurrence
                         logging.warning(f"Checksum did not match validation for {file_name}. Attempting to redownload.")
                         # Get the URL (will return None is the URL is not available)
-                        url = band_dict.get_urls_from_date(curr_date, file_only=False)
+                        url = band_dict.get_urls_from_date(curr_date,
+                                                           file_only=False)
                         # If there was a URL
                         if url:
                             # Get the checksum
