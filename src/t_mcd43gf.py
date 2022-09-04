@@ -54,6 +54,11 @@ def get_input_data_for_band(years, band, archive_set=6):
         file_name = url_dict.get_urls_from_date(curr_date, file_only=True)
         # If there is a file name
         if file_name:
+            # If more than one file name came back for the date
+            if len(file_name) > 1:
+                # Log a warning
+                logging.warning(f"{len(file_name)} file names returned for {curr_date.isoformat()}. Using first file name only.")
+            file_name = file_name[0]
             # Construct the file path
             file_path = Path(environ['input_files_path'] + file_name)
             # If the file does not exist
