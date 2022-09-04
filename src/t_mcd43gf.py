@@ -52,68 +52,38 @@ def get_input_data_for_band(years, band, archive_set=6):
     curr_date = start_date
     # While the current date is <= end date
     while curr_date <= end_date:
-        # Get the file name
-        file_name = band_dict.get_urls_from_date(curr_date,
-                                                 file_only=True)
-        # If there is a file name
-        if file_name:
+        # Get the file object from the date
+        file_object = band_dict.get_file_objects_from_date(curr_date)
+        # If there is a file object
+        if file_object:
             # If more than one file name came back for the date
-            if len(file_name) > 1:
+            if len(file_object) > 1:
                 # Log a warning
-                logging.warning(f"{len(file_name)} file names returned for {curr_date.isoformat()}. Using first file name.")
-            file_name = file_name[0]
+                logging.warning(f"{len(file_object)} files returned for {curr_date.isoformat()}. Using first file.")
+            # Shuck the file object from the list
+            file_object = file_object[0]
             # Construct the file path
-            file_path = Path(environ['input_files_path'] + archive_set + file_name)
+            file_path = Path(environ['input_files_path'], archive_set, file_object.name)
+            # Insert into file object
+            file_object.destination = file_path
             # If the file does not exist
-            if not exists(file_path):
-                # Get the URL (will return None is the URL is not available)
-                url = band_dict.get_urls_from_date(curr_date,
-                                                   file_only=False)
-                # If there was a URL
-                if url:
-                    # Get the checksum
-                    checksum = band_dict.by_name.get(file_name)['checksum']
-                    # If more than one URL came back for the date
-                    if len(url) > 1:
-                        # Log a warning
-                        logging.warning(f"{len(url)} URLs returned for {curr_date.isoformat()}. Using first URL.")
-                    url = url[0]
-                    # Add EarthDataFileRequest object to list
-                    target_list.append(t_laads_tools.EarthDataFileRequest(file_name,
-                                                                          url,
-                                                                          file_path,
-                                                                          checksum=checksum))
+            if not exists(file_object.destination):
+                # Add EarthDataFileRequest object to list
+                target_list.append(file_object)
             # Otherwise (file does exist)
             else:
-                # Try and get the checksum
-                checksum = band_dict.by_name.get(file_name)['checksum']
                 # If there is a checksum
-                if checksum:
+                if file_object.checksum:
                     # If the checksum is wrong
-                    if not t_laads_tools.check_checksum(file_path, checksum):
+                    if not t_laads_tools.check_checksum(file_path, file_object.checksum):
                         # Log this occurrence
-                        logging.warning(f"Checksum did not match validation for {file_name}. Attempting to redownload.")
-                        # Get the URL (will return None is the URL is not available)
-                        url = band_dict.get_urls_from_date(curr_date,
-                                                           file_only=False)
-                        # If there was a URL
-                        if url:
-                            # Get the checksum
-                            checksum = band_dict.by_name.get(file_name)['checksum']
-                            # If more than one URL came back for the date
-                            if len(url) > 1:
-                                # Log a warning
-                                logging.warning(f"{len(url)} URLs returned for {curr_date.isoformat()}. Using first URL only.")
-                            url = url[0]
-                            # Add EarthDataFileRequest object to list to redownload
-                            target_list.append(t_laads_tools.EarthDataFileRequest(file_name,
-                                                                                  url,
-                                                                                  file_path,
-                                                                                  checksum=checksum))
+                        logging.warning(f"Checksum did not match validation for {file_object.name}. Attempting to redownload.")
+                        # Add EarthDataFileRequest object to list to redownload
+                        target_list.append(file_object)
                 # Otherwise (no checksum)
                 else:
                     # Log a warning
-                    logging.warning(f"Checksum not found for {file_name}. Skipping download.")
+                    logging.warning(f"Checksum not found for {file_object.name}. Skipping redownload.")
         # Add a day to the current date
         curr_date += datetime.timedelta(days=1)
     # Send the URL list for downloading
