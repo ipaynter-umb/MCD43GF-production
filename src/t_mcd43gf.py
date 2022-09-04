@@ -64,8 +64,12 @@ def get_input_data_for_band(years, band, archive_set=6):
                 if url:
                     # Get the checksum
                     checksum = url_dict.by_name.get(file_name)['checksum']
+                    # If more than one URL came back for the date
+                    if len(url) > 1:
+                        # Log a warning
+                        logging.warning(f"{len(url)} URLs returned for {curr_date.isoformat()}. Using first URL only.")
                     # Add to list
-                    url_list.append((url, checksum))
+                    url_list.append((url[0], checksum))
             # Otherwise (file does exist)
             else:
                 # Try and get the checksum
