@@ -29,11 +29,13 @@ def get_input_data_for_gapfilled(years, archive_set=6):
 
 
 def get_input_data_for_band(years, band, archive_set=6):
-    # Get URL library for band
-    url_dict = t_laads_tools.LaadsUrlsDict(f"MCD43D{t_laads_tools.zero_pad_number(band, digits=2)}",
+    # Ensure archive set is a string
+    archive_set = str(archive_set)
+    # Get data library for band
+    band_dict = t_laads_tools.EarthDataDict(f"MCD43D{t_laads_tools.zero_pad_number(band, digits=2)}",
                                            archive_set=archive_set)
     # List of URLs to be downloaded
-    url_list = []
+    target_list = []
     # Ensure years is a list
     years = make_var_list(years)
     # Sort the list
@@ -51,34 +53,37 @@ def get_input_data_for_band(years, band, archive_set=6):
     # While the current date is <= end date
     while curr_date <= end_date:
         # Get the file name
-        file_name = url_dict.get_urls_from_date(curr_date, file_only=True)
+        file_name = band_dict.get_urls_from_date(curr_date, file_only=True)
         # If there is a file name
         if file_name:
             # If more than one file name came back for the date
             if len(file_name) > 1:
                 # Log a warning
-                logging.warning(f"{len(file_name)} file names returned for {curr_date.isoformat()}. Using first file name only.")
+                logging.warning(f"{len(file_name)} file names returned for {curr_date.isoformat()}. Using first file name.")
             file_name = file_name[0]
             # Construct the file path
-            file_path = Path(environ['input_files_path'] + file_name)
+            file_path = Path(environ['input_files_path'] + archive_set + file_name)
             # If the file does not exist
             if not exists(file_path):
                 # Get the URL (will return None is the URL is not available)
-                url = url_dict.get_urls_from_date(curr_date, file_only=False)
+                url = band_dict.get_urls_from_date(curr_date, file_only=False)
                 # If there was a URL
                 if url:
                     # Get the checksum
-                    checksum = url_dict.by_name.get(file_name)['checksum']
+                    checksum = band_dict.by_name.get(file_name)['checksum']
                     # If more than one URL came back for the date
                     if len(url) > 1:
                         # Log a warning
-                        logging.warning(f"{len(url)} URLs returned for {curr_date.isoformat()}. Using first URL only.")
-                    # Add to list
-                    url_list.append((url[0], checksum))
+                        logging.warning(f"{len(url)} URLs returned for {curr_date.isoformat()}. Using first URL.")
+                    # Add EarthDataFileRequest object to list
+                    target_list.append(t_laads_tools.EarthDataFileRequest(file_name,
+                                                                          url,
+                                                                          file_path,
+                                                                          checksum=checksum))
             # Otherwise (file does exist)
             else:
                 # Try and get the checksum
-                checksum = url_dict.by_name.get(file_name)['checksum']
+                checksum = band_dict.by_name.get(file_name)['checksum']
                 # If there is a checksum
                 if checksum:
                     # If the checksum is wrong
@@ -86,25 +91,28 @@ def get_input_data_for_band(years, band, archive_set=6):
                         # Log this occurrence
                         logging.warning(f"Checksum did not match validation for {file_name}. Attempting to redownload.")
                         # Get the URL (will return None is the URL is not available)
-                        url = url_dict.get_urls_from_date(curr_date, file_only=False)
+                        url = band_dict.get_urls_from_date(curr_date, file_only=False)
                         # If there was a URL
                         if url:
                             # Get the checksum
-                            checksum = url_dict.by_name.get(file_name)['checksum']
+                            checksum = band_dict.by_name.get(file_name)['checksum']
                             # If more than one URL came back for the date
                             if len(url) > 1:
                                 # Log a warning
                                 logging.warning(f"{len(url)} URLs returned for {curr_date.isoformat()}. Using first URL only.")
-                            # Add to list to redownload
-                            url_list.append((url[0], checksum))
+                            # Add EarthDataFileRequest object to list to redownload
+                            target_list.append(t_laads_tools.EarthDataFileRequest(file_name,
+                                                                                  url,
+                                                                                  file_path,
+                                                                                  checksum=checksum))
                 # Otherwise (no checksum)
                 else:
                     # Log a warning
-                    logging.warning(f"Checksum not found for {file_name}.")
+                    logging.warning(f"Checksum not found for {file_name}. Skipping download.")
         # Add a day to the current date
         curr_date += datetime.timedelta(days=1)
     # Send the URL list for downloading
-    t_laads_tools.multithread_download(url_list, workers=5)
+    t_laads_tools.multithread_download(target_list, workers=5)
 
 
 def create_symbolic_links(years, archive_set):
@@ -165,7 +173,7 @@ def create_symbolic_links(years, archive_set):
                                 "31",
                                 "40"]:
                 # Get URL library for band
-                url_dict = t_laads_tools.LaadsUrlsDict(f"MCD43D{mcd_product}",
+                url_dict = t_laads_tools.EarthDataDict(f"MCD43D{mcd_product}",
                                                        archive_set=archive_set)
                 # Set the current date to the start date
                 curr_date = start_date

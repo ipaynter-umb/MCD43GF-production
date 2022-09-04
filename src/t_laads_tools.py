@@ -6,7 +6,7 @@ import h5py
 import io
 import datetime
 import dotenv
-from os import environ, walk
+from os import environ, walk, mkdir
 from os.path import exists
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -20,8 +20,8 @@ import lxml.html as lh
 dotenv.load_dotenv()
 
 
-# Class for URL dictionary (to load when you need it)
-class LaadsUrlsDict:
+# Class Earth Data Dictionary (to load when you need it)
+class EarthDataDict:
 
     __slots__ = ["by_date",
                  "by_id",
@@ -181,6 +181,22 @@ class LaadsUrlsDict:
         return urls_list
 
 
+# Class for File request
+class EarthDataFileRequest:
+
+    __slots__ = ['name',
+                 'url',
+                 'destination',
+                 'checksum']
+
+    def __init__(self, file_name, url, destination, checksum=None):
+
+        self.name = file_name
+        self.url = url
+        self.destination = destination
+        self.checksum = checksum
+
+
 # Function for our multi-threaded workers to use
 def multithread_download_function(target_url):
     # Start time for the file
@@ -195,24 +211,115 @@ def multithread_download_function(target_url):
 
 
 # Function for multi-threaded downloading
-def multithread_download(target_urls, workers=3):
+def multithread_download(targets, workers=3):
     # <> We want to kick "troubled" jobs down the road
     # Mark start time
     stime = time()
     # Guard against single URLs submitted
-    if not isinstance(target_urls, list):
+    if not isinstance(targets, list):
         # Encapsulate in list
-        target_urls = [target_urls]
-
+        target_urls = [targets]
     # Start a ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        # Submit the tasks from the url list to the worker function
-        future_events = {executor.submit(multithread_download_function, target_url): target_url for target_url in
-                         target_urls}
-
+        # Submit the tasks from the target list to the worker function, along with an authenticated session
+        future_events = {executor.submit(download_earthdata_file,
+                                         connect_to_laads(),
+                                         target): target for target in targets}
     # Report on the overall time taken
     print(f"All downloads finished in {around(time() - stime, decimals=2)} seconds.")
     logging.info(f"All downloads finished in {around(time() - stime, decimals=2)} seconds.")
+
+
+# Attempt a request until it is successful or hard limit is reached
+def attempt_request(session, target_url, attempt_limit=10):
+    # Back-off timer
+    back_off = 0
+    # Attempt count
+    attempt_count = 0
+    # Log the attempt
+    logging.info(f'Making request for {target_url}. Attempt {attempt_count}.')
+    # Try the request
+    r = session.get(target_url)
+    # If we get a non-200 status request
+    while r.status_code != 200:
+        # Increment attempt count
+        attempt_count += 1
+        # If we have exceeded the attempt limit
+        if attempt_count > attempt_limit:
+            # Log an error
+            logging.error(f'Request for {target_url} failed after {attempt_count} of {attempt_limit} attempts.')
+            # Return False (failed)
+            return False
+        # Log a warning
+        logging.warning(f'Status code of {r.status_code} for {target_url}. Waiting {back_off} seconds.')
+        # Wait a hot second
+        sleep(back_off)
+        # Increment attempt count
+        attempt_count += 1
+        # Log the attempt
+        logging.info(f'Making request for {target_url}. Attempt {attempt_count}.')
+        # Try again
+        r = session.get(target_url)
+        # Add to back off timer
+        back_off += 1
+    # Log the attempt
+    logging.info(f'Finished with request for {target_url}. Attempt {attempt_count}.')
+    # Return the completed request
+    return r
+
+
+# Ensure a path exists
+def ensure_file_path_dirs_exist(file_path):
+    # Empty check path
+    check_path = Path()
+    # For each part in the file path (apart from the file name)
+    for part in file_path.parts[0:-1]:
+        # Form the path
+        check_path = Path(str(check_path), part)
+        # If this section of the path does not exists
+        if not exists(check_path):
+            # Log the info
+            logging.info(f'Creating {str(check_path)} for write path {str(file_path)}')
+            # Try to make the directory
+            try:
+                mkdir(check_path)
+            # If this does not work
+            except:
+                # Log error
+                logging.error(f'Could not create directory {check_path} for {file_path}.')
+                # Return False
+                return False
+    # Return True
+    return True
+
+
+# Write content of request to storage
+def write_request_content(request, write_path):
+    # If the write path already exists
+    if exists(write_path):
+        # Log a warning
+        logging.warning(f'Already a file at {write_path}. Overwriting.')
+    # Ensure the path, but if it returns False (failed)
+    if not ensure_file_path_dirs_exist(write_path):
+        # Log an error
+        logging.error(f'Could not ensure write path for {write_path}.')
+        # Return False (failed)
+        return False
+    # Log the info
+    logging.info(f'Writing request content to {write_path}.')
+
+    # Try to write the request content
+    try:
+        with open(write_path, 'wb') as f:
+            f.write(request.content)
+    except:
+        # Log error
+        logging.error(f'Could not write request content to {write_path}.')
+        # Return False (failed)
+        return False
+    else:
+        # Return True (succeeded)
+        return True
 
 
 # Function to submit request to LAADS and keep trying until we get a response
@@ -222,8 +329,7 @@ def try_try_again(r, s, target_url):
     back_off = 5
     # If we get timed out
     while r.status_code != 200:
-        # Print a warning
-        print(f'Warning, bad response for {target_url}.')
+        # Log warning
         logging.warning(f'Warning, bad response for {target_url}.')
         # Wait a hot second
         sleep(back_off)
@@ -247,33 +353,66 @@ def connect_to_laads():
     return s
 
 
+# Download an input file (store it locally). Target is EarthDataFileRequest object
+def download_earthdata_file(session_obj, target, attempt_limit=3):
+    # Attempt count
+    attempt_count = 0
+    # While True
+    while True:
+        # Increment attempt count
+        attempt_count += 1
+        # If we have exceeded the attempt count
+        if attempt_count > attempt_limit:
+            # Log an error
+            logging.error(f'Downloading file from {target.url} failed after {attempt_count} of {attempt_limit} attempts.')
+            # Return False (failed)
+            return False
+        # Log the info
+        logging.info(f'Attempting to download {target.url}. Attempt {attempt_count}.')
+        # Make a request for the provided URL
+        r = attempt_request(session_obj, target.url)
+        # If the request failed
+        if not r:
+            # Log an error
+            logging.error(f'A valid request could not be made for {target.url}.')
+            # Skip the loop
+            continue
+        # Try to write the content of the request to storage, but if it returns False (failed)
+        if not write_request_content(r, target.destination):
+            # Log an error
+            logging.error(f'The downloaded file could not be written to {target.destination}.')
+            # Skip the loop
+            continue
+        # If a checksum was provided
+        if target.checksum:
+            # Check the checksum. If it returns False (failed)
+            if not check_checksum(target.destination, target.checksum):
+                # Log an error
+                logging.error(f'The checksum for {target.url} did not match the content written to {target.destination}.')
+                # Skip the loop
+                continue
+        # If we made it this far, we have succeeded. Return True.
+        return True
+
+
 # Get a data product H5 file from laads and return it in some form
-def get_product_file(session_obj, url_checksum, write_local=False, return_content=False, return_file=True):
+def get_product_file(session_obj, url_checksum, target_url, write_local=False, return_content=False, return_file=True):
     # Unpack the URL/checksum
     target_url = url_checksum[0]
     checksum = url_checksum[1]
-
-    # Request the H5 file from the provided URL
-    r = session_obj.get(target_url)
-    # If the request failed
-    if r.status_code != 200:
-        # Send to repeated submission function
-        r = try_try_again(r, session_obj, target_url)
-    # Try to convert into an h5 object
+    # Make a request for the provided URL
+    r = attempt_request(session_obj, target_url)
+    # Get the write path
+    write_path = environ["input_files_path"] + target_url.split('/')[-1]
+    # Write the content of the request to storage
+    write_request_content(r, write_path)
     try:
-        # If write to disk
-        if write_local is True:
-            # Get the write path
-            write_path = environ["input_files_path"] + target_url.split('/')[-1]
-            # Save the file
-            with open(write_path, 'wb') as f:
-                f.write(r.content)
-            # While the checksum is not correct
-            while not check_checksum(write_path, checksum):
-                # Log this occurrence
-                logging.warning(f"Checksum did not match validation for {target_url.split('/')[-1]}. Attempting to redownload.")
-                # Send to repeated submission function
-                r = try_try_again(r, session_obj, target_url)
+        # While the checksum is not correct
+        while not check_checksum(write_path, checksum):
+            # Log this occurrence
+            logging.warning(f"Checksum did not match validation for {target_url.split('/')[-1]}. Attempting to redownload.")
+            # Send to repeated submission function
+            r = try_try_again(r, session_obj, target_url)
         # If content
         if return_content is True:
             return r.content
@@ -459,7 +598,7 @@ def get_product_availability(data_product,
     # If there is no existing URLs dict object
     if existing_dict is None:
         # Instantiate a URLs dict object
-        urls_dict = LaadsUrlsDict(data_product, archive_set=archive_set)
+        urls_dict = EarthDataDict(data_product, archive_set=archive_set)
     # Otherwise (existing dictionary triggered this availability update)
     else:
         # Use the dictionary
@@ -783,7 +922,7 @@ def multithread_spidering(data_products,
         #
     # Start multithread pool
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        future_events = {executor.submit(LaadsUrlsDict,
+        future_events = {executor.submit(EarthDataDict,
                                          product,
                                          archive_set=archive_set): product for product in data_products}
 
@@ -878,7 +1017,7 @@ def main():
                         format=' %(levelname)s - %(asctime)s - %(message)s',
                         level=logging.INFO)
 
-    laads_dict = LaadsUrlsDict('MCD43D31', archive_set='6')
+    laads_dict = EarthDataDict('MCD43D31', archive_set='6')
 
 
 
