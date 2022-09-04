@@ -9,3 +9,6 @@ print(dict1)
 dict2 = {**dict1, **dict2}
 
 print(dict2)
+
+dict2[None] = '3'
+dict2['3'] = None

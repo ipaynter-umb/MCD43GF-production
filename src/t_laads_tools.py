@@ -32,9 +32,9 @@ class LaadsUrlsDict:
     def __init__(self, data_product, archive_set="5000"):
 
         # Instantiate attributes
-        self.by_date = None
-        self.by_id = None
-        self.by_name = None
+        self.by_date = {}
+        self.by_id = {}
+        self.by_name = {}
         self.data_product = data_product
         self.archive_set = str(archive_set)
         # Latest date
