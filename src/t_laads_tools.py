@@ -261,7 +261,6 @@ def multithread_download(targets, workers=3):
                                          connect_to_laads(),
                                          target): target for target in targets}
     # Report on the overall time taken
-    print(f"All downloads finished in {around(time() - stime, decimals=2)} seconds.")
     logging.info(f"All downloads finished in {around(time() - stime, decimals=2)} seconds.")
 
 

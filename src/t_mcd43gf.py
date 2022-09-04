@@ -104,6 +104,7 @@ def get_input_data_for_band(years, band, archive_set=6):
                             if len(url) > 1:
                                 # Log a warning
                                 logging.warning(f"{len(url)} URLs returned for {curr_date.isoformat()}. Using first URL only.")
+                            url = url[0]
                             # Add EarthDataFileRequest object to list to redownload
                             target_list.append(t_laads_tools.EarthDataFileRequest(file_name,
                                                                                   url,
