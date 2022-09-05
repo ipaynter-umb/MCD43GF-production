@@ -7,6 +7,7 @@ from os.path import exists
 from pathlib import Path
 import dotenv
 from numpy import arange
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # Load the environmental variables from .env file
 dotenv.load_dotenv()
@@ -34,8 +35,10 @@ def get_input_data_for_band(years, band, archive_set=6):
     # Get data library for band
     band_dict = t_laads_tools.EarthDataDict(f"MCD43D{t_laads_tools.zero_pad_number(band, digits=2)}",
                                             archive_set=archive_set)
-    # List of URLs to be downloaded
+    # List of targets to be downloaded
     target_list = []
+    # List of targets to have their checksums checked
+    checksum_check_list = []
     # Ensure years is a list
     years = make_var_list(years)
     # Sort the list
@@ -70,24 +73,44 @@ def get_input_data_for_band(years, band, archive_set=6):
             if not exists(file_object.destination):
                 # Add EarthDataFileRequest object to list
                 target_list.append(file_object)
-            # Otherwise (file does exist)
+            # Otherwise (the file does exist)
             else:
                 # If there is a checksum
                 if file_object.checksum:
-                    # If the checksum is wrong
-                    if not t_laads_tools.check_checksum(file_path, file_object.checksum):
-                        # Log this occurrence
-                        logging.warning(f"Checksum did not match validation for {file_object.name}. Attempting to redownload.")
-                        # Add EarthDataFileRequest object to list to redownload
-                        target_list.append(file_object)
+                    # Add EarthDataFileRequest object to the checksum check list
+                    checksum_check_list.append(file_object)
                 # Otherwise (no checksum)
                 else:
                     # Log a warning
                     logging.warning(f"Checksum not found for {file_object.name}. Skipping redownload.")
+
+    # Start a ProcessPoolExecutor
+    with ProcessPoolExecutor(max_workers=40) as executor:
+        # Submit the tasks from the target list to the worker function
+        future_events = {executor.submit(multithread_check_checksum,
+                                         target): target for target in checksum_check_list}
+        # As each worker is finished
+        for event in as_completed(future_events):
+            # Get the results dictionary
+            checksum_result = event.result()
+            # If the checksum check failed
+            if checksum_result is False:
+                # Log this occurrence
+                logging.warning(f"Checksum did not match validation for {future_events[event].name}. Attempting to redownload.")
+                # Add the target to the download list
+                target_list.append(future_events[event])
         # Add a day to the current date
         curr_date += datetime.timedelta(days=1)
     # Send the URL list for downloading
     t_laads_tools.multithread_download(target_list, workers=5)
+
+
+def multithread_check_checksum(target):
+
+    # Unpack the object and submit to checksum check, returning the result
+    return t_laads_tools.check_checksum(target.destination,
+                                        target.checksum)
+
 
 
 def create_symbolic_links(years, archive_set):
