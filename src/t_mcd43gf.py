@@ -25,6 +25,8 @@ def get_input_data_for_gapfilled(years, archive_set=6):
     band_list += list(arange(1, 31, 1))
     # For band in bands
     for band in band_list:
+        # Log info
+        logging.info(f"Processing band {band}.")
         # Get the input data for the band
         get_input_data_for_band(years, band, archive_set=archive_set)
 
@@ -83,6 +85,12 @@ def get_input_data_for_band(years, band, archive_set=6):
                 else:
                     # Log a warning
                     logging.warning(f"Checksum not found for {file_object.name}. Skipping redownload.")
+    # Log info
+    logging.info(f"Initial list of {len(target_list)} files to be downloaded.")
+    logging.info(f"{len(checksum_check_list)} checksums to check for previously downloaded files.")
+
+    # Note length of target list
+    target_list_len = len(target_list)
 
     # Start a ProcessPoolExecutor
     with ProcessPoolExecutor(max_workers=40) as executor:
@@ -101,16 +109,21 @@ def get_input_data_for_band(years, band, archive_set=6):
                 target_list.append(future_events[event])
         # Add a day to the current date
         curr_date += datetime.timedelta(days=1)
+    # Log info
+    logging.info(f"{target_list_len - len(target_list)} files need to be redownloaded based on mismatched checksums.")
+    logging.info(f"Final list of {len(target_list)} files to be downloaded.")
     # Send the URL list for downloading
     t_laads_tools.multithread_download(target_list, workers=5)
 
 
 def multithread_check_checksum(target):
 
+    # Log the worker's action
+    logging.info(f'Worker checking checksum for {target.name}.')
+
     # Unpack the object and submit to checksum check, returning the result
     return t_laads_tools.check_checksum(target.destination,
                                         target.checksum)
-
 
 
 def create_symbolic_links(years, archive_set):
