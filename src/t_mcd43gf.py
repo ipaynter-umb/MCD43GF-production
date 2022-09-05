@@ -85,6 +85,8 @@ def get_input_data_for_band(years, band, archive_set=6):
                 else:
                     # Log a warning
                     logging.warning(f"Checksum not found for {file_object.name}. Skipping redownload.")
+        # Increment the day
+        curr_date += datetime.timedelta(days=1)
     # Log info
     logging.info(f"Initial list of {len(target_list)} files to be downloaded.")
     logging.info(f"{len(checksum_check_list)} checksums to check for previously downloaded files.")
