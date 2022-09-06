@@ -137,7 +137,7 @@ def create_symbolic_links(years, archive_set):
     # <target year> / band<band> / <sub year> /
 
     # Link directory path
-    links_dir = Path(environ['input_files_path']) / 'links'
+    links_dir = Path(environ['input_files_path']) / 'links' / archive_set
 
     # If there is no directory for the symbolic links
     if not exists(links_dir):
