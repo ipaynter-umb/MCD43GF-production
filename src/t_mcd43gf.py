@@ -204,8 +204,10 @@ def create_symbolic_links(years, archive_set):
                     file_name = url_dict.get_urls_from_date(curr_date, file_only=True)
                     # If there is a file name
                     if file_name:
+                        # Shuck it from the list
+                        file_name = file_name[0]
                         # Construct the file path
-                        file_path = Path(environ['input_files_path'] + file_name)
+                        file_path = Path(environ['input_files_path'], file_name)
                         # If the file exists (has been downloaded)
                         if exists(file_path):
                             # Construct path for link
