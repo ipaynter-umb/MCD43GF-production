@@ -266,40 +266,49 @@ def multithread_download(targets, workers=3):
 
 # Attempt a request until it is successful or hard limit is reached
 def attempt_request(session, target_url, attempt_limit=10):
+
     # Back-off timer
     back_off = 0
-    # Attempt count
-    attempt_count = 1
-    # Log the attempt
-    logging.info(f'Making request for {target_url}. Attempt {attempt_count}.')
-    # Try the request
-    r = session.get(target_url)
-    # If we get a non-200 status request
-    while r.status_code != 200:
-        # Log the attempt
-        logging.info(f'{r.status_code} for {target_url}.')
-        # Increment attempt count
+    # Attempt counter
+    attempt_count = 0
+
+    while True:
+        # Increment attempt
         attempt_count += 1
-        # If we have exceeded the attempt limit
-        if attempt_count > attempt_limit:
+        # Log the attempt
+        logging.info(f'Making request for {target_url}. Attempt {attempt_count}.')
+        # Try the request
+        try:
+            r = session.get(target_url)
+        except:
+            # Log the warning
+            logging.warning(f'Request for {target_url} failed with an error.')
+        # Otherwise (no error on request)
+        else:
+            # If the status code indicates success
+            if r.status_code == 200:
+                # Log the success
+                logging.info(f'Finished with request for {target_url}. Attempt {attempt_count}.')
+                # Return the response
+                return r
+            # Otherwise (non 200 status code)
+            else:
+                # Log the warning
+                logging.warning(f'{r.status_code} received when requesting {target_url}.')
+        # If we have reached the attempt limit
+        if attempt_count == attempt_limit:
             # Log an error
             logging.error(f'Request for {target_url} failed after {attempt_count} of {attempt_limit} attempts.')
             # Return False (failed)
             return False
-        # Log a warning
-        logging.warning(f'Status code of {r.status_code} for {target_url}. Waiting {back_off} seconds.')
-        # Wait a hot second_
+        # Log info
+        logging.info(f'Waiting {back_off} seconds to retry request for {target_url}.')
+        # Wait a hot second
         sleep(back_off)
-        # Log the attempt
-        logging.info(f'Making request for {target_url}. Attempt {attempt_count}.')
-        # Try again
-        r = session.get(target_url)
-        # Add to back off timer
+        # Add to back off time
         back_off += 1
-    # Log the attempt
-    logging.info(f'Finished with request for {target_url}. Attempt {attempt_count}.')
-    # Return the completed request
-    return r
+        # Get a new session, in case that helps
+        session = connect_to_laads()
 
 
 # Ensure a path exists
