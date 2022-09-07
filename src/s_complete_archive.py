@@ -38,7 +38,7 @@ def main():
         # If this is warning
         if level == "WARNING":
             if "Could not create link" in split_line[4]:
-                link_fails += 1
+
 
                 file_name = split_line[4].split(' ')[6].strip()[:-1]
 
@@ -47,6 +47,7 @@ def main():
                 if product not in failed_links.keys():
                     failed_links[product] = []
                 if file_name not in failed_links[product]:
+                    link_fails += 1
                     failed_links[product].append(file_name)
 
     logging.info(f'Total of {link_fails} files are missing from the archive.')
@@ -61,7 +62,7 @@ def main():
             # Add a file request to the targets list
             targets.append(t_laads_tools.EarthDataFileRequest(link,
                                                               product_dict.by_name[link]['url'],
-                                                              Path(environ['input_files_path'], product_dict.archive_set),
+                                                              Path(environ['input_files_path'], product_dict.archive_set, link),
                                                               checksum=product_dict.by_name[link]['checksum']))
 
     # Send the targets to the download function
