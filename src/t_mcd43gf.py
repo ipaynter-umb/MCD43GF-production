@@ -207,7 +207,7 @@ def create_symbolic_links(years, archive_set):
                         # Shuck it from the list
                         file_name = file_name[0]
                         # Construct the file path
-                        file_path = Path(environ['input_files_path'], file_name)
+                        file_path = Path(environ['input_files_path'], archive_set, file_name)
                         # If the file exists (has been downloaded)
                         if exists(file_path):
                             # Construct path for link
