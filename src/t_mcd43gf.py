@@ -187,10 +187,12 @@ def create_symbolic_links(years, archive_set):
                 if not exists(sub_path):
                     # Make the directory
                     mkdir(sub_path)
+            # Starting MCD43D product
+            starting_mcd43d = ((band - 1) * 3) + 1
             # For each of the relevant MCD43D products (e.g. 01-03 for band 1. All bands use 31 & 40)
-            for mcd_product in [t_laads_tools.zero_pad_number(band, digits=2),
-                                t_laads_tools.zero_pad_number(band + 1, digits=2),
-                                t_laads_tools.zero_pad_number(band + 2, digits=2),
+            for mcd_product in [t_laads_tools.zero_pad_number(starting_mcd43d, digits=2),
+                                t_laads_tools.zero_pad_number(starting_mcd43d + 1, digits=2),
+                                t_laads_tools.zero_pad_number(starting_mcd43d + 2, digits=2),
                                 "31",
                                 "40"]:
                 # Get URL library for band
