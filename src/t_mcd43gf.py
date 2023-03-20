@@ -2,7 +2,7 @@ import argparse
 import t_laads_tools
 import datetime
 import logging
-from os import walk, environ, mkdir, symlink
+from os import environ, mkdir, symlink
 from os.path import exists
 from pathlib import Path
 import dotenv

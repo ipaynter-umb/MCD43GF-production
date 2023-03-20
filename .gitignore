@@ -1,9 +1,10 @@
 venv/
 __pycache__
 .idea/
-.env
+.env.*
 dependencies.txt
+src/tb_*
 support/
-output/
-input/
+outputs/
+inputs/
 logs/

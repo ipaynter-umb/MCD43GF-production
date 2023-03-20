@@ -26,11 +26,12 @@ for suffix in product_suffixes:
 
 # Append the last product to the list
 product_list.append('MCD43D40')
+product_list = ['MCD43D02', 'MCD43D40']
 
 #for index, product in enumerate(product_list):
 #    print(index + 1, product)
 
 # Send the product list to the multithreading
 t_laads_tools.multithread_spidering(product_list,
-                                    archive_set=6,
+                                    archive_set=61,
                                     workers=5)
