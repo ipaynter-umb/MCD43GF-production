@@ -12,7 +12,6 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # Load the environmental variables from .env file
 dotenv.load_dotenv()
 
-
 def get_input_data_for_gapfilled(years, archive_set=6):
     # Set the logging config
     logging.basicConfig(filename=environ['log_files_path'] + f'{datetime.datetime.now():%Y%m%d%H%M%S}.log',

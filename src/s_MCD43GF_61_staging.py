@@ -1,37 +1,33 @@
-import argparse
-import t_mcd43gf
+import datetime
+import t_spinup
+import c_laads
+import t_misc
 import logging
 from os import environ
+from numpy import arange
 
-# Set the logging config
-logging.basicConfig(filename=environ['log_files_path'] + f'{datetime.datetime.now():%Y%m%d%H%M%S}.log',
-                    filemode='w',
-                    format=' %(levelname)s - %(asctime)s - %(message)s',
-                    level=logging.INFO)
-# Band list
-band_list = [31, 40]
-# List of bands from 1 - 31
-band_list += list(arange(1, 31, 1))
-# For band in bands
-for band in band_list:
-    # Log info
-    logging.info(f"Processing band {band}.")
-    # Get the input data for the band
-    get_input_data_for_band(years, band, archive_set=archive_set)
 
-if __name__ == '__main__':
+# Main function
+def main():
+    # Set the logging config
+    logging.basicConfig(filename=environ['logs_dir'] + f'/{datetime.datetime.now():%Y%m%d%H%M%S}.log',
+                        filemode='w',
+                        format=' %(levelname)s - %(asctime)s - %(message)s',
+                        level=logging.INFO)
+    # Band list
+    band_list = [31, 40]
+    # List of bands from 1 - 31
+    band_list += list(arange(1, 31, 1))
+    # For band in bands
+    for band in band_list:
+        # Log info
+        logging.info(f"Getting catalog for band {band}.")
+        # Get a LAADS data set object (this will generate the catalog)
+        c_laads.LAADSDataSet(f'MCD43D{t_misc.zero_pad_number(band, digits=2)}',
+                             archive_set='61',
+                             product=f'MCD43D{t_misc.zero_pad_number(band, digits=2)}')
 
-    # Make an argument parser instance
-    parser = argparse.ArgumentParser()
-    # Add an argument for the years
-    parser.add_argument('-y',
-                        '--years',
-                        nargs='+',
-                        help='Enter years (space-separated)',
-                        required=True)
-    # Parse any argument
-    args = parser.parse_args()
-    # Get input data for years
-    t_mcd43gf.get_input_data_for_gapfilled(args.years, archive_set=61)
-    # Create the symbolic links
-    t_mcd43gf.create_symbolic_links(args.years, archive_set=61)
+
+if __name__ == "__main__":
+
+    main()
