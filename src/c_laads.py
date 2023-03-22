@@ -90,10 +90,10 @@ class LAADSDataSet:
         if not catalog_date:
             # Make a new catalog
             self.get_catalog()
-        # Otherwise (existing catalog)
-        else:
-            # Ingest catalog file
-            self.ingest_catalog_file(catalog_date)
+            # Get the date of the latest catalog (or None if there is none)
+            catalog_date = self.find_catalog_file()
+        # Ingest catalog file
+        self.ingest_catalog_file(catalog_date)
 
     # Check the specification for a given value
     def check_spec(self, attribute, attr_name):
