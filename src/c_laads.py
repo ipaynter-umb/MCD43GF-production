@@ -90,10 +90,10 @@ class LAADSDataSet:
         if not catalog_date:
             # Make a new catalog
             self.get_catalog()
-            # Get the date of the latest catalog (or None if there is none)
-            catalog_date = self.find_catalog_file()
-        # Ingest catalog file
-        self.ingest_catalog_file(catalog_date)
+        # Otherwise (existing catalog)
+        else:
+            # Ingest catalog file
+            self.ingest_catalog_file(catalog_date)
 
     # Check the specification for a given value
     def check_spec(self, attribute, attr_name):
@@ -395,8 +395,17 @@ class LAADSDataSet:
         of = open(Path(environ['support_dir'],
                            f'{self.name}_download_{now_str}.txt'),
                   mode='w')
+
+        # Get the file suffix for the first file
+        file_suffix = list(self.by_filename.keys())[0].split('.')[-1]
+        # Set multithread function to h5
+        mt_func = t_laads.get_laads_hdf5
+        # If this is a hdf4 catalog
+        if file_suffix == 'hdf':
+            # Swap the multithread function for HDF4 retrieval
+            mt_func = t_laads.get_laads_hdf4
         # Multithread
-        futures = t_misc.multithread(t_laads.get_laads_hdf5, list_of_work, as_completed_yield=True)
+        futures = t_misc.multithread(mt_func, list_of_work, as_completed_yield=True)
         # For each future as it is completed
         for future in as_completed(futures):
             # Split out the file and filename
