@@ -59,7 +59,7 @@ def get_laads_hdf5(h5_request, session=get_laads_session(), hash_to_check=None):
 
 # Get a HDF4 file from LAADS
 def get_laads_hdf4(h4_request, session=get_laads_session(), hash_to_check=None):
-    # If a tuple of h5 url and a hash was supplied
+    # If a tuple of h4 url and a hash was supplied
     if isinstance(h4_request, tuple):
         # Break up the components
         h4_url = h4_request[0]
