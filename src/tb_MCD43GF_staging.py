@@ -15,19 +15,19 @@ def main():
                         format=' %(levelname)s - %(asctime)s - %(message)s',
                         level=logging.INFO)
     # Band list
-    band_list = [31]
+    band_list = [31, 40]
     # List of bands from 1 - 31
-    #band_list += list(arange(1, 31, 1))
+    band_list += list(arange(1, 31, 1))
     # For band in bands
     for band in band_list:
         # Log info
         logging.info(f"Getting catalog for band {band}.")
         # Get a LAADS data set object (this will generate the catalog)
-        dataset = c_laads.LAADSDataSet(f'toki_MCD43D{t_misc.zero_pad_number(band, digits=2)}',
+        dataset = c_laads.LAADSDataSet(f'owl_MCD43D{t_misc.zero_pad_number(band, digits=2)}',
                                        archive_set='61',
                                        product=f'MCD43D{t_misc.zero_pad_number(band, digits=2)}',
                                        start_date=datetime.date(year=2020, month=1, day=1),
-                                       end_date=datetime.date(year=2020, month=6, day=1))
+                                       end_date=datetime.date(year=2020, month=1, day=2))
         # Download dataset full catalog
         dataset.download_catalog()
 

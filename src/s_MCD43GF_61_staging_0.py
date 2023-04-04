@@ -3,8 +3,10 @@ import t_spinup
 import c_laads
 import t_misc
 import logging
+import t_mcd43gf
 from os import environ
 from numpy import arange
+from pathlib import Path
 
 
 # Main function
@@ -29,7 +31,9 @@ def main():
                                        start_date=datetime.date(year=2001, month=1, day=1),
                                        end_date=datetime.date(year=2005, month=1, day=1))
         # Download dataset full catalog
-        dataset.download_catalog()
+        #dataset.download_catalog()
+        # Create the symlinks
+        t_mcd43gf.create_symbolic_links(dataset, Path(environ['inputs_dir'], 'links'))
 
 
 if __name__ == "__main__":
