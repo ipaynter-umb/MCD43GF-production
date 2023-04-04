@@ -33,6 +33,10 @@ def create_symbolic_links(dataset, dest_dir):
             logging.error(f'{dest_dir} is not a valid directory path.')
             # Exit
             return None
+    # If the destination does not exist
+    if not exists(dest_dir):
+        # Make it
+        mkdir(dest_dir)
     # Target directories for symbolic links
     target_bands = []
     # If the data product name is MCD43D31 or MCD43D40 (which are used by every band)
