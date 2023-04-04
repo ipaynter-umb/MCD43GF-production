@@ -47,7 +47,7 @@ def create_symbolic_links(dataset, dest_dir):
         # Get the band directory name (2-digit zero-padded band)
         target_bands.append(t_misc.zero_pad_number(round((int(dataset.product[-2:]) + 1) / 3), digits=2))
     # For each "middle" year between the bookend years
-    for year in list(range(start_date.year + 1, end_date.year)):
+    for year in list(range(start_date.year + 1, end_date.year - 1)):
         # Year directory
         year_dir = Path(dest_dir, str(year))
         # If there is not a directory yet
