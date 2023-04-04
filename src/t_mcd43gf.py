@@ -65,7 +65,7 @@ def create_symbolic_links(dataset, dest_dir):
             # For each year relevant to this middle year
             for subyear in list(range(year - 1, year + 2)):
                 # Subyear directory
-                subyear_dir = Path(band_dir, subyear)
+                subyear_dir = Path(band_dir, str(subyear))
                 # If there is not a directory yet
                 if not exists(subyear_dir):
                     # Make it
