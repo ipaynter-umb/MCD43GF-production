@@ -86,13 +86,15 @@ def create_symbolic_links(dataset, dest_dir):
                     curr_end = datetime.date(year=year + 1,
                                              month=1,
                                              day=1) + datetime.timedelta(days=192)
-                    # If the file's date is in the current window
+                    # If the date is in the current window
                     if curr_start <= date_key <= curr_end:
-                        # Current file name
-                        filename = dataset.by_date[date_key].name
-                        # Path to the file
-                        file_path = Path(environ['inputs_dir'], dataset.name, filename)
-                        # Get the link path
-                        link_path = Path(dest_dir, str(year), band, str(date_key.year), filename)
-                        # Create a symbolic link
-                        symlink(file_path, link_path)
+                        # For each file in the date
+                        for file in dataset.by_date[date_key]:
+                            # Current file name
+                            filename = file.name
+                            # Path to the file
+                            file_path = Path(environ['inputs_dir'], dataset.name, filename)
+                            # Get the link path
+                            link_path = Path(dest_dir, str(year), band, str(date_key.year), filename)
+                            # Create a symbolic link
+                            symlink(file_path, link_path)
