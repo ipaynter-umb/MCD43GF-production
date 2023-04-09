@@ -96,5 +96,7 @@ def create_symbolic_links(dataset, dest_dir):
                             file_path = Path(environ['inputs_dir'], dataset.name, filename)
                             # Get the link path
                             link_path = Path(dest_dir, str(year), band, str(date_key.year), filename)
-                            # Create a symbolic link
-                            symlink(file_path, link_path)
+                            # If the link does not already exist
+                            if not exists(link_path):
+                                # Create a symbolic link
+                                symlink(file_path, link_path)
