@@ -14,7 +14,7 @@ from numpy import arange
 # Takes a LAADSDataSet object and a destination directory
 def create_symbolic_links(year, band, datasets):
 
-    year_dir = Path(environ['inputs_dir'], str(year))
+    year_dir = Path(environ['inputs_dir'], 'links', str(year))
 
     if not exists(year_dir):
         mkdir(year_dir)
