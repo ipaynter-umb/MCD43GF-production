@@ -19,7 +19,7 @@ def create_symbolic_links(year, band, datasets):
 
     current_date = start_date
 
-    dest_dir = Path(environ['inputs_dir'], 'links', year, band)
+    dest_dir = Path(environ['inputs_dir'], 'links', str(year), band)
 
     while current_date < end_date:
         for dataset in datasets:
