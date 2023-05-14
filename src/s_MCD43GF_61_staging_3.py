@@ -25,7 +25,7 @@ def main():
         # Log info
         logging.info(f"Getting catalog for band {band}.")
         # Get a LAADS data set object (this will generate the catalog)
-        dataset = c_laads.LAADSDataSet(f'MCD43D{t_misc.zero_pad_number(band, digits=2)}_1',
+        dataset = c_laads.LAADSDataSet(f'MCD43D{t_misc.zero_pad_number(band, digits=2)}_3',
                                        archive_set='61',
                                        product=f'MCD43D{t_misc.zero_pad_number(band, digits=2)}',
                                        start_date=datetime.date(year=2014, month=6, day=20),
